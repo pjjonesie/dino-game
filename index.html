@@ -1,155 +1,156 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<link rel="stylesheet" href="index.css">
+  <title>Dino</title>
 
-<title>Dino</title>
+  <!-- Your repo's CSS (where you set transparency + black filter + heading styles) -->
+  <link rel="stylesheet" href="index.css" />
 
-<style>
-html, body {
-  margin:0;
-  height:100%;
-  overflow:hidden;
-  background:transparent;
-}
+  <style>
+    /* Safety reset so full-bleed works */
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
 
-/* PRESS SPACE OVERLAY */
+    /* Overlay (we keep it super simple; your index.css can override further) */
+    #messageBox {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      pointer-events: none;
+      background: transparent;
+      text-align: center;
+    }
 
-#messageBox {
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:9999;
-  pointer-events:none;
-}
-
-#messageBox h1 {
-  font-family:"Arial Black", Arial, sans-serif;
-  font-weight:900;
-  letter-spacing:-1px;
-  transform:scaleX(0.9);
-  display:inline-block;
-  font-size:42px;
-  color:#000;
-}
-</style>
+    #messageBox h1 {
+      font-family: "Arial Black", Arial, sans-serif;
+      font-weight: 900;
+      letter-spacing: -1px;
+      transform: scaleX(0.9);
+      display: inline-block;
+      font-size: 42px;
+      color: #000;
+      margin: 0;
+      padding: 0 24px;
+    }
+  </style>
 </head>
 
 <body>
+  <!-- This structure matches what many Dino clones expect -->
+  <div id="main-frame-error" class="interstitial-wrapper">
+    <div id="runner-container" class="runner-container"></div>
+  </div>
 
-<div id="main-frame-error" class="interstitial-wrapper">
-    <div id="runner-container"></div>
-</div>
+  <div id="messageBox">
+    <h1>Press Space to Start</h1>
+  </div>
 
-<div id="messageBox">
-  <h1>Press Space to Start</h1>
-</div>
+  <!-- Game script from your repo (do not move below our patches) -->
+  <script src="index.js"></script>
 
-<script src="index.js"></script>
+  <script>
+    /* 1) Hide overlay on first Space WITHOUT overwriting the game's handler */
+    window.addEventListener("keydown", function (evt) {
+      if (evt.code === "Space" || evt.keyCode === 32) {
+        const box = document.getElementById("messageBox");
+        if (box) box.style.visibility = "hidden";
+        // Do NOT preventDefault here — let the game receive Space.
+      }
+    }, { passive: true });
 
-<script>
+    /* 2) Full-bleed cover scaling WITHOUT squish (scales proportionally) */
+    (function () {
+      function fitDinoToScreen() {
+        const canvas = document.querySelector("canvas");
+        if (!canvas) return;
 
-/* HIDE PRESS SPACE */
+        const baseW = canvas.width || 600;
+        const baseH = canvas.height || 150;
 
-document.onkeydown = function(evt) {
-    evt = evt || window.event;
-    if (evt.keyCode == 32) {
-        var box = document.getElementById("messageBox");
-        box.style.visibility="hidden";
-    }
-};
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
 
-/* FULL BLEED 1920x1080 SCALE */
+        const scale = Math.max(vw / baseW, vh / baseH);
 
-function fitDinoToScreen() {
+        canvas.style.position = "fixed";
+        canvas.style.left = "50%";
+        canvas.style.top = "50%";
+        canvas.style.transformOrigin = "center center";
+        canvas.style.transform = "translate(-50%, -50%) scale(" + scale + ")";
+      }
 
-  const canvas = document.querySelector("canvas");
-  if (!canvas) return;
+      window.addEventListener("resize", fitDinoToScreen, { passive: true });
 
-  const baseWidth = canvas.width || 600;
-  const baseHeight = canvas.height || 150;
+      // Run a bunch at startup because the canvas can appear slightly after load
+      let tries = 0;
+      const t = setInterval(() => {
+        fitDinoToScreen();
+        if (++tries > 120) clearInterval(t);
+      }, 50);
+    })();
 
-  const screenWidth = window.innerWidth;
-  const screenHeight = window.innerHeight;
+    /* 3) Font patch for SCORE / HI / GAME OVER (canvas text) */
+    (function () {
+      const FONT = '900 28px "Arial Black", Arial, sans-serif';
+      const BIGFONT = '900 46px "Arial Black", Arial, sans-serif';
+      const CONDENSE = 0.84;
 
-  const scale = Math.max(
-    screenWidth / baseWidth,
-    screenHeight / baseHeight
-  );
+      function shouldStyleText(txt) {
+        if (txt == null) return false;
+        const s = String(txt).trim();
+        if (/^\d+$/.test(s)) return true;          // score numbers
+        if (/^HI\s*\d+/i.test(s)) return true;     // HI ######
+        if (/GAME\s*OVER/i.test(s)) return true;   // GAME OVER
+        return false;
+      }
 
-  canvas.style.position = "fixed";
-  canvas.style.left = "50%";
-  canvas.style.top = "50%";
-  canvas.style.transformOrigin = "center center";
-  canvas.style.transform =
-    "translate(-50%, -50%) scale(" + scale + ")";
-}
+      const proto = CanvasRenderingContext2D.prototype;
+      if (proto.__pjArialBlackPatched) return;
+      proto.__pjArialBlackPatched = true;
 
-let tries = 0;
-let timer = setInterval(function(){
+      const original = proto.fillText;
 
-  fitDinoToScreen();
-  tries++;
+      proto.fillText = function (text, x, y, maxWidth) {
+        if (!shouldStyleText(text)) {
+          return original.call(this, text, x, y, maxWidth);
+        }
 
-  if (tries > 80) clearInterval(timer);
+        const s = String(text);
+        const big = /GAME\s*OVER/i.test(s);
 
-},50);
+        const prevFont = this.font;
+        const prevFill = this.fillStyle;
 
-window.addEventListener("resize", fitDinoToScreen);
+        this.save();
+        this.scale(CONDENSE, 1);
 
-/* FONT PATCH */
+        const newX = x / CONDENSE;
 
-(() => {
+        this.font = big ? BIGFONT : FONT;
+        this.fillStyle = "#000";
 
-const FONT = '900 28px "Arial Black", Arial, sans-serif';
-const BIGFONT = '900 46px "Arial Black", Arial, sans-serif';
-const CONDENSE = 0.84;
+        const result = original.call(this, s, newX, y, maxWidth);
 
-function shouldStyleText(txt) {
+        this.restore();
 
-  if (!txt) return false;
-  txt = String(txt);
+        this.font = prevFont;
+        this.fillStyle = prevFill;
 
-  if (/^\d+$/.test(txt)) return true;
-  if (/HI/.test(txt)) return true;
-  if (/GAME OVER/i.test(txt)) return true;
-
-  return false;
-}
-
-const proto = CanvasRenderingContext2D.prototype;
-const original = proto.fillText;
-
-proto.fillText = function(text, x, y, maxWidth) {
-
-  if (!shouldStyleText(text)) {
-    return original.call(this, text, x, y, maxWidth);
-  }
-
-  let big = /GAME OVER/i.test(text);
-
-  this.save();
-  this.scale(CONDENSE, 1);
-
-  let newX = x / CONDENSE;
-
-  this.font = big ? BIGFONT : FONT;
-  this.fillStyle = "#000";
-
-  let result = original.call(this, text, newX, y, maxWidth);
-
-  this.restore();
-  return result;
-}
-
-})();
-</script>
-
+        return result;
+      };
+    })();
+  </script>
 </body>
 </html>
+
 
