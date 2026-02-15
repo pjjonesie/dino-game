@@ -2,28 +2,364 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dino Game</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dino Runner (Transparent + Black)</title>
   <style>
-    html,body{
-      height:100%;
-      margin:0;
-      background:#ffffff;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    :root {
+      --ink: #000;
     }
 
-    iframe{
-      width:100%;
-      height:100%;
-      border:0;
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: transparent; /* ✅ transparent page */
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Center the game; keep it responsive */
+    .wrap {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      background: transparent; /* ✅ transparent container */
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    canvas {
+      width: min(980px, 100%);
+      height: auto;
+      aspect-ratio: 980 / 260;
+      display: block;
+      background: transparent; /* ✅ transparent canvas */
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* Optional helper text (you can delete) */
+    .hint {
+      margin-top: 10px;
+      font: 700 12px/1.2 Arial, sans-serif;
+      color: var(--ink);
+      opacity: 0.55;
+      letter-spacing: 0.02em;
     }
   </style>
 </head>
-
 <body>
-  <iframe src="https://wayou.github.io/t-rex-runner/"></iframe>
+  <div class="wrap">
+    <div>
+      <canvas id="game" width="980" height="260" aria-label="Dino game"></canvas>
+      <div class="hint">Click to focus • Press Space / ↑ to jump • R to restart</div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ===== Canvas =====
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d", { alpha: true });
+
+      // ===== Style =====
+      const INK = "#000";
+
+      // ===== Game constants =====
+      const GROUND_Y = 210;
+      const GRAVITY = 2200;      // px/s^2
+      const JUMP_VEL = 820;      // px/s
+      const START_SPEED = 520;   // px/s
+      const SPEED_UP = 10;       // px/s per second
+      const GAP_MIN = 240;
+      const GAP_MAX = 520;
+
+      // ===== Dino =====
+      const dino = {
+        x: 110,
+        y: GROUND_Y,
+        w: 44,
+        h: 52,
+        vy: 0,
+        onGround: true,
+        ducking: false
+      };
+
+      // ===== Obstacles =====
+      /** @type {{x:number,y:number,w:number,h:number}[]} */
+      let obstacles = [];
+      let nextSpawnIn = rand(GAP_MIN, GAP_MAX);
+
+      // ===== Score =====
+      let score = 0;
+      let hi = 0;
+
+      // ===== State =====
+      let speed = START_SPEED;
+      let running = false;
+      let gameOver = false;
+      let lastT = 0;
+
+      // ===== Helpers =====
+      function rand(min, max) {
+        return Math.floor(min + Math.random() * (max - min + 1));
+      }
+      function clamp(n, a, b) {
+        return Math.max(a, Math.min(b, n));
+      }
+      function intersects(a, b) {
+        return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+      }
+
+      // ===== Input =====
+      function jump() {
+        if (!running) start();
+        if (gameOver) return;
+        if (dino.onGround) {
+          dino.vy = -JUMP_VEL;
+          dino.onGround = false;
+        }
+      }
+
+      function restart() {
+        gameOver = false;
+        running = true;
+        speed = START_SPEED;
+        score = 0;
+        obstacles = [];
+        nextSpawnIn = rand(GAP_MIN, GAP_MAX);
+        dino.y = GROUND_Y;
+        dino.vy = 0;
+        dino.onGround = true;
+      }
+
+      // Click/tap to focus + jump
+      canvas.addEventListener("pointerdown", () => {
+        canvas.focus?.();
+        if (gameOver) restart();
+        jump();
+      });
+
+      window.addEventListener("keydown", (e) => {
+        const k = e.key;
+        if (k === " " || k === "ArrowUp") {
+          e.preventDefault();
+          jump();
+        }
+        if (k === "r" || k === "R") restart();
+      });
+
+      function start() {
+        running = true;
+        gameOver = false;
+        lastT = performance.now();
+        requestAnimationFrame(loop);
+      }
+
+      // ===== Drawing (all black, transparent background) =====
+      function clear() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // ✅ keeps transparency
+      }
+
+      function drawGround() {
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(40, GROUND_Y + 56);
+        ctx.lineTo(canvas.width - 40, GROUND_Y + 56);
+        ctx.stroke();
+      }
+
+      function drawDino() {
+        ctx.fillStyle = INK;
+
+        const bodyH = dino.ducking ? 34 : dino.h;
+        const bodyY = dino.y - bodyH;
+
+        // Body
+        roundRect(ctx, dino.x, bodyY, dino.w, bodyH, 10, true);
+
+        // Head bump
+        roundRect(ctx, dino.x + dino.w - 18, bodyY + 8, 22, 18, 8, true);
+
+        // Legs (simple run cycle)
+        const t = performance.now() / 90;
+        const legOffset = (Math.sin(t) > 0 ? 1 : 0);
+        const baseY = dino.y + 2;
+
+        roundRect(ctx, dino.x + 8,  baseY, 10, 18 - legOffset * 4, 5, true);
+        roundRect(ctx, dino.x + 26, baseY, 10, 18 - (1 - legOffset) * 4, 5, true);
+      }
+
+      function drawObstacle(o) {
+        ctx.fillStyle = INK;
+        // cactus-esque stacked rounded rects
+        roundRect(ctx, o.x, o.y, o.w, o.h, 10, true);
+        roundRect(ctx, o.x - 12, o.y + 16, 18, 14, 7, true);
+        roundRect(ctx, o.x + o.w - 6, o.y + 28, 18, 14, 7, true);
+      }
+
+      // ✅ Arial Black + condensed look by scaling X
+      function drawScore() {
+        ctx.fillStyle = INK;
+
+        const pad = 40;
+        const y = 56;
+
+        const s = String(Math.floor(score)).padStart(6, "0");
+        const h = String(Math.floor(hi)).padStart(6, "0");
+
+        // "Condense" text reliably for canvas:
+        const condense = 0.82;
+
+        ctx.save();
+        ctx.translate(canvas.width - pad, y);
+        ctx.scale(condense, 1);
+
+        // IMPORTANT: translate adjusted because scaling affects width
+        const inv = 1 / condense;
+
+        // Font (score + HI)
+        ctx.font = '900 28px "Arial Black", Arial, sans-serif';
+        ctx.textAlign = "right";
+        ctx.textBaseline = "alphabetic";
+
+        // HI
+        ctx.globalAlpha = 0.7;
+        ctx.fillText(`HI ${h}`, -inv * 220, 0);
+
+        // SCORE
+        ctx.globalAlpha = 1.0;
+        ctx.fillText(s, 0, 0);
+
+        ctx.restore();
+      }
+
+      function drawGameOver() {
+        const midX = canvas.width / 2;
+
+        ctx.fillStyle = INK;
+
+        // Condensed + bold
+        const condense = 0.84;
+
+        ctx.save();
+        ctx.translate(midX, 120);
+        ctx.scale(condense, 1);
+
+        ctx.font = '900 46px "Arial Black", Arial, sans-serif';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("GAME OVER", 0, 0);
+
+        ctx.font = '900 22px "Arial Black", Arial, sans-serif';
+        ctx.globalAlpha = 0.7;
+        ctx.fillText("Press R to restart", 0, 44);
+
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+      }
+
+      function roundRect(ctx, x, y, w, h, r, fill) {
+        r = clamp(r, 0, Math.min(w, h) / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        if (fill) ctx.fill();
+      }
+
+      // ===== Update =====
+      function spawnObstacle() {
+        const h = rand(44, 78);
+        const w = rand(26, 38);
+        obstacles.push({
+          x: canvas.width + 40,
+          y: GROUND_Y + 56 - h,
+          w,
+          h
+        });
+      }
+
+      function update(dt) {
+        // speed ramps up slowly
+        speed += SPEED_UP * dt;
+
+        // Dino physics
+        if (!dino.onGround) {
+          dino.vy += GRAVITY * dt;
+          dino.y += dino.vy * dt;
+          if (dino.y >= GROUND_Y) {
+            dino.y = GROUND_Y;
+            dino.vy = 0;
+            dino.onGround = true;
+          }
+        }
+
+        // Move obstacles
+        for (const o of obstacles) o.x -= speed * dt;
+        obstacles = obstacles.filter(o => o.x + o.w > -40);
+
+        // Spawn timing
+        nextSpawnIn -= speed * dt;
+        if (nextSpawnIn <= 0) {
+          spawnObstacle();
+          nextSpawnIn = rand(GAP_MIN, GAP_MAX);
+        }
+
+        // Collision
+        const hitbox = {
+          x: dino.x + 4,
+          y: (dino.y - dino.h) + 6,
+          w: dino.w - 10,
+          h: dino.h - 8
+        };
+
+        for (const o of obstacles) {
+          const ob = { x: o.x + 4, y: o.y + 4, w: o.w - 8, h: o.h - 8 };
+          if (intersects(hitbox, ob)) {
+            gameOver = true;
+            running = false;
+            hi = Math.max(hi, score);
+            break;
+          }
+        }
+
+        // Score
+        score += dt * 10 * (speed / START_SPEED);
+      }
+
+      function render() {
+        clear();
+        drawGround();
+
+        for (const o of obstacles) drawObstacle(o);
+        drawDino();
+        drawScore();
+
+        if (gameOver) drawGameOver();
+      }
+
+      // ===== Loop =====
+      function loop(t) {
+        if (!running && !gameOver) return;
+
+        const dt = Math.min(0.033, (t - lastT) / 1000);
+        lastT = t;
+
+        if (!gameOver) update(dt);
+        render();
+
+        requestAnimationFrame(loop);
+      }
+
+      // Start in "paused" state visually
+      render();
+    })();
+  </script>
 </body>
 </html>
+
