@@ -1,156 +1,90 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dino</title>
-  <link rel="stylesheet" href="index.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+html, body {
+  margin:0;
+  height:100%;
+  overflow:hidden;
+  background:transparent;
+}
+
+canvas {
+  background:transparent !important;
+  filter:brightness(0) saturate(100%);
+}
+
+#messageBox {
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  pointer-events:none;
+}
+
+#messageBox h1 {
+  font-family:"Arial Black", Arial, sans-serif;
+  font-weight:900;
+  letter-spacing:-1px;
+  transform:scaleX(0.9);
+  font-size:42px;
+  color:#000;
+}
+</style>
 </head>
 
 <body>
-  <img id="offline-resources-1x" src="assets/offline-sprite-1x.png" style="display:none">
-  <img id="offline-resources-2x" src="assets/offline-sprite-2x.png" style="display:none">
 
-  <!-- This wrapper + runner-container pattern matches what the Chromium Runner expects -->
-  <div class="interstitial-wrapper" id="offlineWrapper">
-    <!-- Runner looks for this inside the outer container -->
-    <button id="details-button" style="display:none" aria-hidden="true" tabindex="-1"></button>
+<div id="game"></div>
 
-    <!-- Runner injects canvas into a container like this -->
-    <div id="runner-container" class="runner-container"></div>
-  </div>
+<div id="messageBox">
+<h1>Press Space to Start</h1>
+</div>
 
-  <!-- Overlay -->
-  <div id="messageBox">
-    <h1>Press Space to Start</h1>
-  </div>
+<script src="https://wayou.github.io/t-rex-runner/js/runner.js"></script>
 
-  <!-- Your Chromium Runner code -->
-  <script src="index.js"></script>
+<script>
 
-  <script>
-    // Small on-page debugger so you don't have to use DevTools.
-    function showStatus(msg) {
-      let el = document.getElementById("pjStatus");
-      if (!el) {
-        el = document.createElement("div");
-        el.id = "pjStatus";
-        el.style.cssText =
-          "position:fixed;left:12px;bottom:12px;z-index:10000;" +
-          "font:12px/1.2 Arial, sans-serif;color:#000;background:rgba(255,255,255,.85);" +
-          "padding:8px 10px;border-radius:10px;max-width:min(520px,calc(100vw - 24px));";
-        document.body.appendChild(el);
-      }
-      el.textContent = msg;
-    }
+const runner = new Runner('#game');
 
-    // IMPORTANT: do NOT use document.onkeydown = ... (that breaks the game's handler)
-    window.addEventListener("keydown", (evt) => {
-      if (evt.code === "Space" || evt.keyCode === 32) {
-        const box = document.getElementById("messageBox");
-        if (box) box.style.visibility = "hidden";
-        // do NOT preventDefault — the game needs Space too
-      }
-    }, { passive: true });
+window.addEventListener("keydown",function(e){
+if(e.code==="Space"){
+document.getElementById("messageBox").style.visibility="hidden";
+}
+});
 
-    // Full-bleed cover scaling (no squish)
-    function fitCanvasCover() {
-      const c = document.querySelector("canvas");
-      if (!c) return;
+function fit(){
 
-      const baseW = c.width || 600;
-      const baseH = c.height || 150;
+const canvas=document.querySelector("canvas");
+if(!canvas)return;
 
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+const baseW=canvas.width||600;
+const baseH=canvas.height||150;
 
-      const scale = Math.max(vw / baseW, vh / baseH);
+const scale=Math.max(
+window.innerWidth/baseW,
+window.innerHeight/baseH
+);
 
-      c.style.position = "fixed";
-      c.style.left = "50%";
-      c.style.top = "50%";
-      c.style.transformOrigin = "center center";
-      c.style.transform = `translate(-50%, -50%) scale(${scale})`;
-    }
-    window.addEventListener("resize", fitCanvasCover, { passive: true });
+canvas.style.position="fixed";
+canvas.style.left="50%";
+canvas.style.top="50%";
+canvas.style.transformOrigin="center center";
+canvas.style.transform=
+"translate(-50%,-50%) scale("+scale+")";
 
-    // Score / HI / GAME OVER font patch (Arial Black + condensed look)
-    (function patchCanvasText() {
-      const FONT = '900 28px "Arial Black", Arial, sans-serif';
-      const BIGFONT = '900 46px "Arial Black", Arial, sans-serif';
-      const CONDENSE = 0.84;
+}
 
-      function shouldStyleText(txt) {
-        if (txt == null) return false;
-        const s = String(txt).trim();
-        if (/^\d+$/.test(s)) return true;          // score digits
-        if (/^HI\s*\d+/i.test(s)) return true;     // HI ######
-        if (/GAME\s*OVER/i.test(s)) return true;   // GAME OVER
-        return false;
-      }
+let t=setInterval(fit,50);
+window.addEventListener("resize",fit);
 
-      const proto = CanvasRenderingContext2D.prototype;
-      if (proto.__pjFontPatched) return;
-      proto.__pjFontPatched = true;
+</script>
 
-      const original = proto.fillText;
-
-      proto.fillText = function(text, x, y, maxWidth) {
-        if (!shouldStyleText(text)) return original.call(this, text, x, y, maxWidth);
-
-        const s = String(text);
-        const big = /GAME\s*OVER/i.test(s);
-
-        const prevFont = this.font;
-        const prevFill = this.fillStyle;
-
-        this.save();
-        this.scale(CONDENSE, 1);
-        const newX = x / CONDENSE;
-
-        this.font = big ? BIGFONT : FONT;
-        this.fillStyle = "#000";
-
-        const out = original.call(this, s, newX, y, maxWidth);
-
-        this.restore();
-        this.font = prevFont;
-        this.fillStyle = prevFill;
-
-        return out;
-      };
-    })();
-
-    // Start Runner (this is the piece that is currently missing / failing)
-    function startRunner() {
-      if (!window.Runner) {
-        showStatus("Runner not found (index.js may not be loading).");
-        return false;
-      }
-
-      try {
-        // Most Chromium runner builds want the outer container selector
-        // We pass the wrapper that contains #details-button and #runner-container.
-        if (!window.__PJ_RUNNER__) {
-          window.__PJ_RUNNER__ = new window.Runner("#offlineWrapper");
-        }
-
-        showStatus("Runner started. Press Space.");
-        return true;
-      } catch (e) {
-        showStatus("Runner init error: " + (e && e.message ? e.message : String(e)));
-        return false;
-      }
-    }
-
-    // Retry a bit because some Pages loads are slow
-    let tries = 0;
-    const t = setInterval(() => {
-      tries++;
-      const ok = startRunner();
-      fitCanvasCover();
-      if (ok || tries > 60) clearInterval(t);
-    }, 100);
-  </script>
 </body>
 </html>
+
