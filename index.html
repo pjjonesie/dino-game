@@ -5,7 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1.0, user-scalable=no">
     <title >chrome easter egg: t-rex runner</title>
     <link rel="stylesheet" href="index.css">
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> 
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+        <script>
+  // Lock DPR to 1 so the runner never switches to 2x after starting.
+  try {
+    Object.defineProperty(window, "devicePixelRatio", {
+      get() { return 1; },
+      configurable: true
+    });
+  } catch (e) {}
+</script>
     <script src="index.js"></script>
 </head>
 
