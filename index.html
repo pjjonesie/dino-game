@@ -65,7 +65,7 @@ function fitDinoToScreen() {
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
 
-  const scale = Math.max(
+  const scale = Math.min(
     screenWidth / baseWidth,
     screenHeight / baseHeight
   );
