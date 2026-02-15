@@ -232,6 +232,21 @@ canvas {
   top: 50%;
   transform-origin: center center;
 }
+/* FULL BLEED WITHOUT SQUISHING */
+
+.runner-container {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(3);
+  transform-origin: center center;
+}
+
+/* hide scrollbars */
+html, body {
+  overflow: hidden;
+}
+
 
 
 
