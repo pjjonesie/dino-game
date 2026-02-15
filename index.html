@@ -40,5 +40,28 @@
     }
 };
 </script>
+    <script>
+(() => {
+
+const FONT = '900 28px "Arial Black", Arial, sans-serif';
+const BIGFONT = '900 46px "Arial Black", Arial, sans-serif';
+const CONDENSE = 0.84;
+
+function shouldStyleText(txt) {
+
+  if (!txt) return false;
+  txt = String(txt);
+
+  if (/^\d+$/.test(txt)) return true;
+  if (/HI/.test(txt)) return true;
+  if (/GAME OVER/i.test(txt)) return true;
+
+  return false;
+}
+
+const proto = CanvasRenderingContext2D.prototype;
+const original = proto.fillText;
+
+proto.f
     
 </html>
