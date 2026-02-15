@@ -361,5 +361,74 @@
     })();
   </script>
 </body>
+  <script>
+/**
+ * Dino skin patch:
+ * - Forces score / HI / GAME OVER text to Arial Black
+ * - Applies a "condensed" look by scaling text horizontally
+ * - Leaves the rest of the game visuals untouched
+ *
+ * Works across many dino clones by patching canvas text draw calls.
+ */
+(() => {
+  const FONT = '900 28px "Arial Black", Arial, sans-serif';
+  const FONT_BIG = '900 46px "Arial Black", Arial, sans-serif';
+  const CONDENSE_X = 0.84;
+
+  // Only target the UI-ish strings (score + HI + game over)
+  function shouldStyleText(txt) {
+    if (txt == null) return false;
+    const s = String(txt);
+    // scores like "000123" or "12345"
+    if (/^\s*\d+\s*$/.test(s)) return true;
+    // "HI 000123" variants
+    if (/^\s*HI\s*\d+/i.test(s)) return true;
+    // game over variants
+    if (/GAME\s*OVER/i.test(s)) return true;
+    // some clones draw instructions
+    if (/RESTART|PRESS\s*R|SPACE|JUMP/i.test(s)) return true;
+    return false;
+  }
+
+  const proto = CanvasRenderingContext2D.prototype;
+  const origFillText = proto.fillText;
+
+  if (proto.__dinoFontPatched) return;
+  proto.__dinoFontPatched = true;
+
+  proto.fillText = function(text, x, y, maxWidth) {
+    if (!shouldStyleText(text)) {
+      return origFillText.call(this, text, x, y, maxWidth);
+    }
+
+    const s = String(text);
+
+    // Choose size: big for GAME OVER, normal for score
+    const useBig = /GAME\s*OVER/i.test(s);
+    const prevFont = this.font;
+
+    this.save();
+
+    // Apply condensed look
+    this.scale(CONDENSE_X, 1);
+
+    // Because we scaled X, adjust x so the text stays where the game expects
+    const x2 = x / CONDENSE_X;
+
+    // Force font + ink color (black)
+    this.font = useBig ? FONT_BIG : FONT;
+    this.fillStyle = '#000';
+
+    // Draw
+    const out = origFillText.call(this, s, x2, y, maxWidth);
+
+    this.restore();
+    this.font = prevFont; // restore font for anything else
+
+    return out;
+  };
+})();
+</script>
+
 </html>
 
