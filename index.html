@@ -74,8 +74,10 @@ function fitDinoToScreen() {
   canvas.style.left = "50%";
   canvas.style.top = "50%";
   canvas.style.transformOrigin = "center center";
+  canvas.style.width = (baseWidth * scale) + "px";
+  canvas.style.height = (baseHeight * scale) + "px";
   canvas.style.transform =
-    "translate(-50%, -50%) scale(" + scale + ")";
+  "translate(-50%, -50%)";
 }
 
 let tries = 0;
