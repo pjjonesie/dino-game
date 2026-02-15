@@ -17,6 +17,19 @@
 </script>
     <script src="index.js"></script>
 </head>
+    <script>
+  // Start game on click/tap (helps inside iframes + mobile)
+  function startDinoFromPointer() {
+    try {
+      const r = window.Runner && (Runner.instance_ || window.__runner__);
+      if (r && r.onKeyDown) {
+        r.onKeyDown({ keyCode: 32, preventDefault(){} });
+      }
+    } catch (e) {}
+  }
+
+  window.addEventListener("pointerdown", startDinoFromPointer, { passive: true });
+</script>
 
 <body id="t" class="offline">
     <div id="messageBox" class="sendmessage">
