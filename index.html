@@ -50,5 +50,46 @@ PRESS THE SPACEBAR
     }
 };
 </script>
+    <script>
+
+/* FULL BLEED 1920x1080 */
+
+function fitDinoToScreen() {
+
+  const canvas = document.querySelector("canvas");
+  if (!canvas) return;
+
+  const baseWidth = canvas.width || 600;
+  const baseHeight = canvas.height || 150;
+
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+
+  const scale = Math.max(
+    screenWidth / baseWidth,
+    screenHeight / baseHeight
+  );
+
+  canvas.style.position = "fixed";
+  canvas.style.left = "50%";
+  canvas.style.top = "50%";
+  canvas.style.transformOrigin = "center center";
+  canvas.style.transform =
+    "translate(-50%, -50%) scale(" + scale + ")";
+}
+
+let tries = 0;
+let timer = setInterval(function(){
+
+  fitDinoToScreen();
+  tries++;
+
+  if (tries > 80) clearInterval(timer);
+
+},50);
+
+window.addEventListener("resize", fitDinoToScreen);
+
+</script>
     
 </html>
